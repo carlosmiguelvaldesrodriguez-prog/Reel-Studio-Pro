@@ -55,7 +55,8 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
     if (key.isEmpty) { setState(() => log = "❌ ERROR: Pega la API Key."); return; }
     setState(() => cargando = true);
     try {
-      final model = GenerativeModel(model: 'gemini-1.5-flash', apiKey: key);
+            final model = GenerativeModel(model: 'gemini-3-flash-preview', apiKey: key);
+
       final images = <DataPart>[];
       for (var f in fotos) {
         final bytes = await File(f.path!).readAsBytes();
