@@ -39,9 +39,7 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
   List<PlatformFile> fotos = [];
   List<VideoClip> clips = [];
   bool cargando = false;
-  String log = "App Lista. Pega tu API Key y sube tus fotos.";
-  
-  // NUEVO: Controlador para leer lo que escribas en la caja de texto
+  String log = "Pega tu API Key, enciende tu VPN y sube las fotos.";
   final TextEditingController _apiKeyController = TextEditingController();
 
   Future<void> seleccionar() async {
@@ -50,63 +48,64 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
   }
 
   Future<void> procesarIA() async {
-    // NUEVO: Verificamos que no hayas dejado la caja de texto vacía
-    final apiKeyIngresada = _apiKeyController.text.trim();
-    if (apiKeyIngresada.isEmpty) {
-      setState(() => log = "❌ ERROR: Debes pegar tu API Key arriba.");
-      return;
-    }
+    final key = _apiKeyController.text.trim();
+    if (key.isEmpty) { setState(() => log = "❌ ERROR: Pega la API Key arriba."); return; }
 
     setState(() => cargando = true);
     try {
-      // Usamos la llave que escribiste en la pantalla
-      final model = GenerativeModel(model: 'gemini-1.5-flash', apiKey: apiKeyIngresada);
+      // CORRECCIÓN REALIZADA: AHORA USAMOS GEMINI 3 FLASH
+      final model = GenerativeModel(model: 'gemini-3-flash-preview', apiKey: key);
+      
       final images = <DataPart>[];
       for (var f in fotos) {
         final bytes = await File(f.path!).readAsBytes();
-        final miniatura = img.encodeJpg(img.copyResize(img.decodeImage(bytes)!, width: 400), quality: 60);
-        images.add(DataPart('image/jpeg', Uint8List.fromList(miniatura)));
+        final mini = img.encodeJpg(img.copyResize(img.decodeImage(bytes)!, width: 400), quality: 60);
+        images.add(DataPart('image/jpeg', Uint8List.fromList(mini)));
       }
-      final prompt = TextPart('Director de Arte: Crea un Reel de EXACTAMENTE 30s. 10 escenas de ~3s. Alterna transiciones: crossfade, fade_black, wipeleft. JSON: {"timeline":[{"image_name":"x","duration_sec":3.0, "transition":"crossfade"}]}');
+      
+      final prompt = TextPart('Director de Arte: Crea un Reel de 30s. 10 escenas de 3s. Transiciones variadas. JSON: {"timeline":[{"image_name":"x","duration_sec":3.0, "transition":"crossfade"}]}');
       final resp = await model.generateContent([Content.multi([...images, prompt])]);
       final data = jsonDecode(resp.text!.replaceAll('```json', '').replaceAll('```', '').trim());
+      
       setState(() { 
         clips = (data['timeline'] as List).map((i) => VideoClip.fromJson(i)).toList();
-        log = "¡Guion de ${clips.length} escenas listo!";
+        log = "¡ÉXITO! Guion de ${clips.length} escenas generado con Gemini 3.";
       });
-    } catch (e) { setState(() => log = "Error IA: $e"); }
+    } catch (e) { setState(() => log = "Error: $e\n(Revisa el VPN de escritorio)"); }
     finally { setState(() => cargando = false); }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('IA REEL STUDIO - WINDOWS (VERSIÓN SEGURA)')),
+      appBar: AppBar(title: const Text('IA REEL STUDIO - MOTOR 3.0')),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
           child: Column(
             children: [
-              // NUEVO: Caja de texto para la API Key
               SizedBox(
-                width: 500,
+                width: 450,
                 child: TextField(
                   controller: _apiKeyController,
-                  obscureText: true, // Oculta la llave con puntitos como una contraseña
-                  decoration: const InputDecoration(
-                    labelText: '🔑 Pega tu Google API Key aquí',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.vpn_key),
-                  ),
+                  obscureText: true,
+                  decoration: const InputDecoration(labelText: '🔑 Pega aquí tu Nueva API Key', border: OutlineInputBorder()),
                 ),
               ),
               const SizedBox(height: 20),
-              Text(log, style: const TextStyle(color: Colors.cyanAccent)),
+              Text(log, textAlign: TextAlign.center, style: const TextStyle(color: Colors.cyanAccent)),
               const SizedBox(height: 20),
-              if (!cargando) ElevatedButton(onPressed: seleccionar, child: const Text("1. SUBIR FOTOS")),
-              const SizedBox(height: 10),
-              if (fotos.isNotEmpty && !cargando) ElevatedButton(onPressed: procesarIA, style: ElevatedButton.styleFrom(backgroundColor: Colors.green), child: const Text("2. GENERAR GUION")),
+              if (!cargando) ...[
+                ElevatedButton(onPressed: seleccionar, child: const Text("1. SUBIR FOTOS")),
+                const SizedBox(height: 10),
+                if (fotos.isNotEmpty) ElevatedButton(onPressed: procesarIA, style: ElevatedButton.styleFrom(backgroundColor: Colors.green), child: const Text("2. GENERAR GUION (GEMINI 3)")),
+              ],
               if (cargando) const CircularProgressIndicator(),
+              if (clips.isNotEmpty) ...[
+                const SizedBox(height: 20),
+                const Text("STORYBOARD:", style: TextStyle(fontWeight: FontWeight.bold)),
+                for (var c in clips) Text("${c.imageName} | ${c.duration}s | ${c.transition}", style: const TextStyle(fontSize: 10, color: Colors.grey)),
+              ]
             ],
           ),
         ),
