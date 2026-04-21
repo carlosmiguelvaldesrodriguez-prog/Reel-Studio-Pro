@@ -40,12 +40,14 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
   List<PlatformFile> fotos = [];
   List<VideoClip> clips = [];
   bool cargando = false;
-  String log = "Pega tu API Key y sube las fotos.";
+  String log = "Listo para crear Reels de 30s.";
   final TextEditingController _apiKeyController = TextEditingController();
 
   Future<void> seleccionar() async {
     FilePickerResult? res = await FilePicker.platform.pickFiles(type: FileType.image, allowMultiple: true);
-    if (res != null) setState(() { fotos = res.files; clips = []; log = "Fotos cargadas."; });
+    if (res != null) {
+      setState(() { fotos = res.files; clips = []; log = "${res.files.length} fotos cargadas."; });
+    }
   }
 
   Future<void> procesarIA() async {
@@ -53,78 +55,29 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
     if (key.isEmpty) { setState(() => log = "❌ ERROR: Pega la API Key."); return; }
     setState(() => cargando = true);
     try {
-      final model = GenerativeModel(model: 'gemini-3-flash-preview', apiKey: key);
-      final imagesForIA = <DataPart>[]; // Nombre unificado
+      final model = GenerativeModel(model: 'gemini-1.5-flash', apiKey: key);
+      final images = <DataPart>[];
       for (var f in fotos) {
         final bytes = await File(f.path!).readAsBytes();
         final mini = img.encodeJpg(img.copyResize(img.decodeImage(bytes)!, width: 400), quality: 60);
-        imagesForIA.add(DataPart('image/jpeg', Uint8List.fromList(mini)));
+        images.add(DataPart('image/jpeg', Uint8List.fromList(mini)));
       }
-      final prompt = TextPart('Director Pro: Crea Reel 30s. 10 escenas. Transiciones. JSON: {"timeline":[{"image_name":"x","duration_sec":3.0, "transition":"crossfade"}]}');
-      final resp = await model.generateContent([Content.multi([...imagesForIA, prompt])]);
+      final prompt = TextPart('Director de Arte: Crea un Reel de 30s. 10 escenas de ~3s. Alterna transiciones: crossfade, fade_black, wipeleft. JSON: {"timeline":[{"image_name":"x","duration_sec":3.0, "transition":"crossfade"}]}');
+      final resp = await model.generateContent([Content.multi([...images, prompt])]);
       final data = jsonDecode(resp.text!.replaceAll('```json', '').replaceAll('```', '').trim());
       setState(() { 
         clips = (data['timeline'] as List).map((i) => VideoClip.fromJson(i)).toList();
-        log = "¡GUION LISTO! Presiona RENDERIZAR.";
+        log = "¡Guion de ${clips.length} escenas listo! Presiona Renderizar.";
       });
-    } catch (e) { setState(() => log = "Error: $e"); }
+    } catch (e) { setState(() => log = "Error IA: $e"); }
     finally { setState(() => cargando = false); }
   }
 
   Future<void> renderizarVideo() async {
-    if (fotos.isEmpty || clips.isEmpty) return;
-    setState(() { cargando = true; log = "🎬 FABRICANDO MP4... Espera un momento."; });
-
-    try {
-      final String carpetaBase = File(fotos[0].path!).parent.path;
-      final String rutaSalida = "$carpetaBase\\Reel_IA_Final.mp4";
-      final String rutaGuion = "$carpetaBase\\guion.txt";
-
-      String contenidoGuion = "";
-      for (var clip in clips) {
-        // Buscamos la ruta local de la foto
-        String rutaFoto = fotos.firstWhere(
-          (f) => f.name.contains(clip.imageName.replaceAll("input_file_", "")),
-          orElse: () => fotos[0]
-        ).path!;
-        contenidoGuion += "file '$rutaFoto'\nduration ${clip.duration}\n";
-      }
-      
-      await File(rutaGuion).writeAsString(contenidoGuion);
-
-      // Comando FFmpeg para Windows
-      final String comando = "-f concat -safe 0 -i \"$rutaGuion\" -vsync vfr -pix_fmt yuv420p -y \"$rutaSalida\"";
-
-      await FFmpegKit.execute(comando).then((session) async {
-        final returnCode = await session.getReturnCode();
-        setState(() {
-          cargando = false;
-          if (returnCode!.isValueSuccess()) {
-            log = "✨ ¡VÍDEO CREADO! búscalo en:\n$rutaSalida";
-          } else {
-            log = "❌ Error en motor FFmpeg.";
-          }
-        });
-      });
-    } catch (e) {
-      setState(() { cargando = false; log = "❌ Error de Archivos: $e"; });
-    }
+    setState(() { cargando = true; log = "🎬 Iniciando FFmpeg..."; });
+    // Aquí irá la lógica de renderizado
+    await Future.delayed(const Duration(seconds: 5));
+    setState(() { cargando = false; log = "✨ ¡VIDEO RENDERIZADO! (Simulación)"; });
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('IA REEL STUDIO - FINAL BUILD')),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            children: [
-              SizedBox(width: 450, child: TextField(controller: _apiKeyController, obscureText: true, decoration: const InputDecoration(labelText: '🔑 API Key', border: OutlineInputBorder()))),
-              const SizedBox(height: 20),
-              Text(log, textAlign: TextAlign.center, style: const TextStyle(color: Colors.cyanAccent)),
-              const SizedBox(height: 20),
-              if (!cargando) ...[
-                ElevatedButton.icon(onPressed: seleccionar, icon: const Icon(Icons.add_a_photo), label: const Text("1. SUBIR FOTOS")),
-                const SizedBox(height: 10),
-                if (fotos.isNotEmpty) ElevatedButton.icon(onPressed: procesarIA, icon: const Icon(Icons.psychology), style: ElevatedButton.styleFrom(backg
+// --- FIN DE LA PARTE 1 DE MAIN.DART ---
