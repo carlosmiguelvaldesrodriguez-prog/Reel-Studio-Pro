@@ -81,3 +81,43 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
   }
 
 // --- FIN DE LA PARTE 1 DE MAIN.DART ---
+// --- COMIENZA LA PARTE 2 DE MAIN.DART ---
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('IA REEL STUDIO - WINDOWS')),
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(25),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              SizedBox(
+                width: 450,
+                child: TextField(
+                  controller: _apiKeyController,
+                  obscureText: true,
+                  decoration: const InputDecoration(labelText: '🔑 Pega tu API Key de Google', border: OutlineInputBorder()),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(log, textAlign: TextAlign.center, style: const TextStyle(color: Colors.cyanAccent)),
+              const SizedBox(height: 30),
+              if (!cargando) ...[
+                ElevatedButton(onPressed: seleccionar, child: const Text("1. SUBIR FOTOS")),
+                const SizedBox(height: 15),
+                if (fotos.isNotEmpty)
+                  ElevatedButton(onPressed: procesarIA, style: ElevatedButton.styleFrom(backgroundColor: Colors.green), child: const Text("2. GENERAR GUION")),
+                const SizedBox(height: 15),
+                if (clips.isNotEmpty)
+                  ElevatedButton(onPressed: renderizarVideo, style: ElevatedButton.styleFrom(backgroundColor: Colors.blue), child: const Text("3. RENDERIZAR VIDEO")),
+              ],
+              if (cargando) const Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
