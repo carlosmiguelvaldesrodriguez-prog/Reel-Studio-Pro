@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart'; 
 import 'package:google_generative_ai/google_generative_ai.dart'; 
 import 'package:image/image.dart' as img; 
+import 'package:ffmpeg_kit_flutter_full_gpl/ffmpeg_kit.dart';
 import 'dart:typed_data';
 import 'dart:convert';
 import 'dart:async';
@@ -39,7 +40,7 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
   List<PlatformFile> fotos = [];
   List<VideoClip> clips = [];
   bool cargando = false;
-  String log = "Pega tu API Key, enciende tu VPN y sube las fotos.";
+  String log = "Cerebro Conectado. Paso Final: Activar el Músculo.";
   final TextEditingController _apiKeyController = TextEditingController();
 
   Future<void> seleccionar() async {
@@ -49,63 +50,81 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
 
   Future<void> procesarIA() async {
     final key = _apiKeyController.text.trim();
-    if (key.isEmpty) { setState(() => log = "❌ ERROR: Pega la API Key arriba."); return; }
-
+    if (key.isEmpty) { setState(() => log = "❌ ERROR: Pega la API Key."); return; }
     setState(() => cargando = true);
     try {
-      // CORRECCIÓN REALIZADA: AHORA USAMOS GEMINI 3 FLASH
       final model = GenerativeModel(model: 'gemini-3-flash-preview', apiKey: key);
-      
       final images = <DataPart>[];
       for (var f in fotos) {
         final bytes = await File(f.path!).readAsBytes();
         final mini = img.encodeJpg(img.copyResize(img.decodeImage(bytes)!, width: 400), quality: 60);
-        images.add(DataPart('image/jpeg', Uint8List.fromList(mini)));
+        imageParts.add(DataPart('image/jpeg', Uint8List.fromList(mini)));
       }
-      
-      final prompt = TextPart('Director de Arte: Crea un Reel de 30s. 10 escenas de 3s. Transiciones variadas. JSON: {"timeline":[{"image_name":"x","duration_sec":3.0, "transition":"crossfade"}]}');
+      final prompt = TextPart('Director Pro: Crea Reel 30s. 10 escenas. Transiciones variadas. JSON: {"timeline":[{"image_name":"x","duration_sec":3.0, "transition":"crossfade"}]}');
       final resp = await model.generateContent([Content.multi([...images, prompt])]);
       final data = jsonDecode(resp.text!.replaceAll('```json', '').replaceAll('```', '').trim());
-      
       setState(() { 
         clips = (data['timeline'] as List).map((i) => VideoClip.fromJson(i)).toList();
-        log = "¡ÉXITO! Guion de ${clips.length} escenas generado con Gemini 3.";
+        log = "¡GUION LISTO! Presiona RENDERIZAR para crear el video real.";
       });
-    } catch (e) { setState(() => log = "Error: $e\n(Revisa el VPN de escritorio)"); }
+    } catch (e) { setState(() => log = "Error: $e"); }
     finally { setState(() => cargando = false); }
+  }
+
+  // --- EL MÚSCULO FINAL (FFMPEG REAL) ---
+  Future<void> renderizarVideo() async {
+    setState(() { cargando = true; log = "🎬 FABRICANDO VIDEO MP4... Por favor espera."; });
+
+    // 1. Buscamos el nombre de la primera foto para saber en qué carpeta estamos
+    String carpetaBase = File(fotos[0].path!).parent.path;
+    String rutaSalida = "$carpetaBase/Reel_IA_Final.mp4";
+
+    // 2. Creamos el archivo de guion para FFmpeg
+    String guionTexto = "";
+    for (var clip in clips) {
+      // Buscamos la ruta real de la foto que eligió la IA
+      String rutaFoto = fotos.firstWhere((f) => f.name.contains(clip.imageName.replaceAll("input_file_", "")), orElse: () => fotos[0]).path!;
+      guionTexto += "file '$rutaFoto'\nduration ${clip.duration}\n";
+    }
+    
+    File fileGuion = File('$carpetaBase/guion.txt');
+    await fileGuion.writeAsString(guionTexto);
+
+    // 3. Ejecutamos el motor FFmpeg
+    // (Pegamos las fotos + la música y lo guardamos en el Escritorio)
+    String comando = "-f concat -safe 0 -i '${fileGuion.path}' -vsync vfr -pix_fmt yuv420p -y '$rutaSalida'";
+
+    FFmpegKit.execute(comando).then((session) async {
+      final returnCode = await session.getReturnCode();
+      if (returnCode!.isValueSuccess()) {
+        setState(() { cargando = false; log = "✨ ¡ÉXITO! Video guardado en: $rutaSalida"; });
+      } else {
+        setState(() { cargando = false; log = "❌ ERROR EN RENDERIZADO. Verifica FFmpeg."; });
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('IA REEL STUDIO - MOTOR 3.0')),
+      appBar: AppBar(title: const Text('IA REEL STUDIO - VERSIÓN FINAL')),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
           child: Column(
             children: [
-              SizedBox(
-                width: 450,
-                child: TextField(
-                  controller: _apiKeyController,
-                  obscureText: true,
-                  decoration: const InputDecoration(labelText: '🔑 Pega aquí tu Nueva API Key', border: OutlineInputBorder()),
-                ),
-              ),
+              SizedBox(width: 450, child: TextField(controller: _apiKeyController, obscureText: true, decoration: const InputDecoration(labelText: '🔑 API Key'))),
               const SizedBox(height: 20),
               Text(log, textAlign: TextAlign.center, style: const TextStyle(color: Colors.cyanAccent)),
               const SizedBox(height: 20),
               if (!cargando) ...[
                 ElevatedButton(onPressed: seleccionar, child: const Text("1. SUBIR FOTOS")),
                 const SizedBox(height: 10),
-                if (fotos.isNotEmpty) ElevatedButton(onPressed: procesarIA, style: ElevatedButton.styleFrom(backgroundColor: Colors.green), child: const Text("2. GENERAR GUION (GEMINI 3)")),
+                if (fotos.isNotEmpty) ElevatedButton(onPressed: procesarIA, style: ElevatedButton.styleFrom(backgroundColor: Colors.green), child: const Text("2. GENERAR GUION")),
+                const SizedBox(height: 10),
+                if (clips.isNotEmpty) ElevatedButton(onPressed: renderizarVideo, style: ElevatedButton.styleFrom(backgroundColor: Colors.blue), child: const Text("3. RENDERIZAR VIDEO FINAL")),
               ],
               if (cargando) const CircularProgressIndicator(),
-              if (clips.isNotEmpty) ...[
-                const SizedBox(height: 20),
-                const Text("STORYBOARD:", style: TextStyle(fontWeight: FontWeight.bold)),
-                for (var c in clips) Text("${c.imageName} | ${c.duration}s | ${c.transition}", style: const TextStyle(fontSize: 10, color: Colors.grey)),
-              ]
             ],
           ),
         ),
