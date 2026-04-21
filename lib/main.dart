@@ -50,7 +50,7 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
   Future<void> procesarIA() async {
     setState(() => cargando = true);
     try {
-      final model = GenerativeModel(model: 'gemini-1.5-flash', apiKey: 'AIzaSyAOHfy0kk4gHHaOoXwt4kCKKhiifqnIeUw');
+      final model = GenerativeModel(model: 'gemini-3-flash-preview', apiKey: 'AIzaSyAOHfy0kk4gHHaOoXwt4kCKKhiifqnIeUw');
       final images = <DataPart>[];
       for (var f in fotos) {
         final bytes = await File(f.path!).readAsBytes();
