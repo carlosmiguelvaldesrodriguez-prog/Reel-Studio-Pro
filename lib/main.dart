@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart'; 
 import 'package:google_generative_ai/google_generative_ai.dart'; 
 import 'package:image/image.dart' as img; 
-import 'package:ffmpeg_kit_flutter_full_gpl/ffmpeg_kit.dart';
 import 'dart:typed_data';
 import 'dart:convert';
 import 'dart:async';
@@ -40,7 +39,10 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
   List<PlatformFile> fotos = [];
   List<VideoClip> clips = [];
   bool cargando = false;
-  String log = "App Lista. Sube tus fotos para el Reel de 30s.";
+  String log = "App Lista. Pega tu API Key y sube tus fotos.";
+  
+  // NUEVO: Controlador para leer lo que escribas en la caja de texto
+  final TextEditingController _apiKeyController = TextEditingController();
 
   Future<void> seleccionar() async {
     FilePickerResult? res = await FilePicker.platform.pickFiles(type: FileType.image, allowMultiple: true);
@@ -48,9 +50,17 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
   }
 
   Future<void> procesarIA() async {
+    // NUEVO: Verificamos que no hayas dejado la caja de texto vacía
+    final apiKeyIngresada = _apiKeyController.text.trim();
+    if (apiKeyIngresada.isEmpty) {
+      setState(() => log = "❌ ERROR: Debes pegar tu API Key arriba.");
+      return;
+    }
+
     setState(() => cargando = true);
     try {
-      final model = GenerativeModel(model: 'gemini-3-flash-preview', apiKey: 'AIzaSyAOHfy0kk4gHHaOoXwt4kCKKhiifqnIeUw');
+      // Usamos la llave que escribiste en la pantalla
+      final model = GenerativeModel(model: 'gemini-1.5-flash', apiKey: apiKeyIngresada);
       final images = <DataPart>[];
       for (var f in fotos) {
         final bytes = await File(f.path!).readAsBytes();
@@ -62,7 +72,7 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
       final data = jsonDecode(resp.text!.replaceAll('```json', '').replaceAll('```', '').trim());
       setState(() { 
         clips = (data['timeline'] as List).map((i) => VideoClip.fromJson(i)).toList();
-        log = "¡Guion de ${clips.length} escenas listo! Presiona Renderizar.";
+        log = "¡Guion de ${clips.length} escenas listo!";
       });
     } catch (e) { setState(() => log = "Error IA: $e"); }
     finally { setState(() => cargando = false); }
@@ -71,19 +81,31 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('IA REEL STUDIO - WINDOWS')),
+      appBar: AppBar(title: const Text('IA REEL STUDIO - WINDOWS (VERSIÓN SEGURA)')),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
           child: Column(
             children: [
+              // NUEVO: Caja de texto para la API Key
+              SizedBox(
+                width: 500,
+                child: TextField(
+                  controller: _apiKeyController,
+                  obscureText: true, // Oculta la llave con puntitos como una contraseña
+                  decoration: const InputDecoration(
+                    labelText: '🔑 Pega tu Google API Key aquí',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.vpn_key),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
               Text(log, style: const TextStyle(color: Colors.cyanAccent)),
               const SizedBox(height: 20),
               if (!cargando) ElevatedButton(onPressed: seleccionar, child: const Text("1. SUBIR FOTOS")),
               const SizedBox(height: 10),
               if (fotos.isNotEmpty && !cargando) ElevatedButton(onPressed: procesarIA, style: ElevatedButton.styleFrom(backgroundColor: Colors.green), child: const Text("2. GENERAR GUION")),
-              const SizedBox(height: 10),
-              if (clips.isNotEmpty && !cargando) ElevatedButton(onPressed: () => setState(() => log="Renderizado nativo activado..."), style: ElevatedButton.styleFrom(backgroundColor: Colors.blue), child: const Text("3. RENDERIZAR VIDEO")),
               if (cargando) const CircularProgressIndicator(),
             ],
           ),
