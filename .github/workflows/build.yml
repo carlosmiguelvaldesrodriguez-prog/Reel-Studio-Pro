@@ -1,4 +1,4 @@
-name: Construir Aplicación Windows
+name: Construir Aplicación para Windows
 
 on:
   push:
@@ -8,16 +8,30 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+
     steps:
-    - uses: actions/checkout@v4
-    - uses: subosito/flutter-action@v2
-      with:
-        channel: 'stable'
-    - run: flutter config --enable-windows-desktop
-    - run: flutter create . --platforms=windows
-    - run: flutter pub get
-    - run: flutter build windows --release
-    - uses: actions/upload-artifact@v4
-      with:
-        name: IA-Reel-Studio-Windows
-        path: build/windows/x64/runner/Release/
+      - name: Descargar el código del repositorio
+        uses: actions/checkout@v4
+
+      - name: Instalar el Motor de Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Activar compilación para Windows
+        run: flutter config --enable-windows-desktop
+
+      - name: Crear los archivos de proyecto de Windows
+        run: flutter create . --platforms=windows
+
+      - name: Instalar Herramientas (pub get)
+        run: flutter pub get
+
+      - name: Construir el programa .EXE
+        run: flutter build windows --release
+
+      - name: Empaquetar el programa terminado
+        uses: actions/upload-artifact@v4
+        with:
+          name: IA-Reel-Studio-Windows-Build
+          path: build/windows/x64/runner/Release/
