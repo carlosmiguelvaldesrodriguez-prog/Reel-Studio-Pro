@@ -11,7 +11,6 @@ import 'dart:io';
 
 void main() => runApp(const MiEstudioApp());
 
-// --- CLASE DEL TRADUCTOR ---
 class VideoClip {
   final String imageName;
   final double duration;
@@ -21,7 +20,7 @@ class VideoClip {
   factory VideoClip.fromJson(Map<String, dynamic> json) => VideoClip(
     imageName: json['image_name'] ?? json['image_id'] ?? "foto.jpg",
     duration: (json['duration_sec'] ?? json['duration'] ?? 3.0).toDouble(),
-    transition: json['transition'] ?? 'crossfade'
+    transition: json['transition'] ?? 'fade'
   );
 }
 
@@ -82,7 +81,7 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
     if (key.isEmpty) { setState(() => log = "❌ ERROR: Pega la API Key."); return; }
     setState(() => cargando = true);
     try {
-      // MOTOR CONFIRMADO: GEMINI 3 FLASH
+      // AUDITORÍA: Modelo gemini-3-flash-preview verificado.
       final model = GenerativeModel(model: 'gemini-3-flash-preview', apiKey: key);
       final images = <DataPart>[];
       for (var f in fotos) {
@@ -90,7 +89,7 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
         final mini = img.encodeJpg(img.copyResize(img.decodeImage(bytes)!, width: 400), quality: 60);
         images.add(DataPart('image/jpeg', Uint8List.fromList(mini)));
       }
-      final prompt = TextPart('Director de Arte: Crea Reel 30s. 10 escenas de ~3s. Alterna transiciones: fade, wipeleft, wiperight, pixelize. JSON: {"timeline":[{"image_name":"x","duration_sec":3.0, "transition":"fade"}]}');
+      final prompt = TextPart('Director de Arte: Crea Reel 30s exactos. 10 escenas de ~3s. Alterna transiciones: fade, wipeleft, wiperight, pixelize. JSON: {"timeline":[{"image_name":"x","duration_sec":3.0, "transition":"fade"}]}');
       final resp = await model.generateContent([Content.multi([...images, prompt])]);
       final data = jsonDecode(resp.text!.replaceAll('```json', '').replaceAll('```', '').trim());
       setState(() { 
@@ -105,14 +104,14 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
         setState(() => log = "❌ Faltan fotos, guion o descargar la música."); return;
     }
     
-    // Verificación de seguridad de FFmpeg
+    // AUDITORÍA: Buscando el ejecutable nativo en Windows
     String rutaFFmpeg = "${Directory.current.path}\\bin\\ffmpeg.exe";
     if (!File(rutaFFmpeg).existsSync()) {
-      setState(() => log = "❌ ERROR: No encuentro ffmpeg.exe.\nAsegúrate de haber copiado la carpeta 'bin' al lado de esta aplicación.");
+      setState(() => log = "❌ ERROR: No encuentro ffmpeg.exe.\nAsegúrate de copiar la carpeta 'bin' al lado del .exe");
       return;
     }
 
-    setState(() { cargando = true; log = "🎬 MATEMÁTICA VISUAL EN CURSO... Calculando transiciones."; });
+    setState(() { cargando = true; log = "🎬 MATEMÁTICA VISUAL EN CURSO... Aplicando transiciones variadas."; });
 
     try {
       String carpetaBase = (await FilePicker.platform.getDirectoryPath()) ?? ".";
@@ -122,13 +121,14 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
       List<String> argsFFmpeg = [];
       String filterComplex = "";
       
+      // AUDITORÍA: Bucle matemático para rotar las fotos (Evita que salga una sola)
       for (int i = 0; i < clips.length; i++) {
-        String nombreBuscado = clips[i].imageName.replaceAll("input_file_", "");
-        String rutaFoto = fotos.firstWhere((f) => f.name.contains(nombreBuscado), orElse: () => fotos.first).path!;
+        String rutaFoto = fotos[i % fotos.length].path!;
         rutaFoto = rutaFoto.replaceAll(r'\', '/'); 
         
         double duracionReal = clips[i].duration + 0.5;
         argsFFmpeg.addAll(['-loop', '1', '-t', '$duracionReal', '-i', rutaFoto]);
+        // Ajuste vertical 1080x1920
         filterComplex += "[$i:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:-1:-1:color=black,format=yuv420p,setsar=1[v$i];";
       }
 
@@ -156,12 +156,12 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
         '-map', '$indiceAudio:a',
         '-c:v', 'libx264',
         '-pix_fmt', 'yuv420p',
-        '-t', '30', 
+        '-t', '30', // Corte exacto a 30 segundos
         '-y',
         rutaSalida
       ]);
 
-      setState(() => log = "🔥 RENDERIZANDO... Tu CPU está uniendo los efectos.");
+      setState(() => log = "🔥 RENDERIZANDO... CPU uniendo fotos distintas con efectos.");
 
       ProcessResult resultado = await Process.run(rutaFFmpeg, argsFFmpeg);
 
