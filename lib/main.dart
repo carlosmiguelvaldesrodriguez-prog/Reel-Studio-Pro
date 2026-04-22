@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart'; 
 import 'package:google_generative_ai/google_generative_ai.dart'; 
 import 'package:image/image.dart' as img; 
-import 'package:ffmpeg_kit_flutter_full_gpl/ffmpeg_kit.dart';
-import 'package:http/http.dart' as http;
-import 'package:path_provider/path_provider.dart';
 import 'dart:typed_data';
 import 'dart:convert';
 import 'dart:async';
 import 'dart:io';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
+
 
 void main() => runApp(const MiEstudioApp());
 
@@ -96,15 +96,16 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
     } catch (e) { setState(() => log = "Error IA: $e\n(Revisa el VPN)"); }
     finally { setState(() => cargando = false); }
   }
+   // --- NUEVA VERSIÓN: EL MÚSCULO NATIVO DE WINDOWS ---
   Future<void> renderizarVideo() async {
     if (fotos.isEmpty || clips.isEmpty || rutaMusicaSeleccionada == null) {
         setState(() => log = "❌ Faltan fotos, guion o descargar la música."); return;
     }
-    setState(() { cargando = true; log = "🎬 FABRICANDO MP4... Por favor espera."; });
+    setState(() { cargando = true; log = "🎬 INICIANDO MOTOR NATIVO FFMPEG..."; });
 
     try {
       String carpetaBase = (await FilePicker.platform.getDirectoryPath()) ?? ".";
-      if (carpetaBase == ".") { setState(() { cargando = false; log = "❌ Cancelaste."; }); return; }
+      if (carpetaBase == ".") { setState(() { cargando = false; log = "❌ Cancelaste la selección de carpeta."; }); return; }
       
       String rutaSalida = "$carpetaBase\\Reel_IA_Final.mp4";
       String rutaGuion = "$carpetaBase\\guion_temp.txt";
@@ -112,23 +113,40 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
       
       for (var clip in clips) {
         String rutaFoto = fotos.firstWhere((f) => f.name.contains(clip.imageName.replaceAll("input_file_", "")), orElse: () => fotos.first).path!;
+        // Limpiamos la ruta por si tiene barras raras
+        rutaFoto = rutaFoto.replaceAll(r'\', '/');
         contenidoGuion += "file '$rutaFoto'\nduration ${clip.duration}\n";
       }
       await File(rutaGuion).writeAsString(contenidoGuion);
 
-      final String comando = "-f concat -safe 0 -i \"$rutaGuion\" -i \"$rutaMusicaSeleccionada\" -vsync vfr -pix_fmt yuv420p -t 30 -y \"$rutaSalida\"";
-      
-      await FFmpegKit.execute(comando).then((session) async {
-        final returnCode = await session.getReturnCode();
-        setState(() {
-          cargando = false;
-          if (returnCode!.isValueSuccess()) {
-            log = "✨ ¡VÍDEO CREADO! Búscalo en:\n$rutaSalida";
-            File(rutaGuion).deleteSync();
-          } else { log = "❌ ERROR EN RENDERIZADO."; }
-        });
+      // Buscamos ffmpeg.exe en la carpeta 'bin' al lado de nuestra app
+      String rutaFFmpeg = "${Directory.current.path}\\bin\\ffmpeg.exe";
+
+      // Ejecutamos el comando directamente en el sistema operativo Windows
+      ProcessResult resultado = await Process.run(rutaFFmpeg, [
+        '-f', 'concat', 
+        '-safe', '0', 
+        '-i', rutaGuion, 
+        '-i', rutaMusicaSeleccionada!, 
+        '-vsync', 'vfr', 
+        '-pix_fmt', 'yuv420p', 
+        '-t', '30', 
+        '-y', 
+        rutaSalida
+      ]);
+
+      setState(() {
+        cargando = false;
+        if (resultado.exitCode == 0) {
+          log = "✨ ¡ÉXITO TOTAL! Video guardado en:\n$rutaSalida";
+          if (File(rutaGuion).existsSync()) File(rutaGuion).deleteSync(); 
+        } else { 
+          log = "❌ ERROR DE WINDOWS.\nRevisa que la carpeta 'bin' con ffmpeg.exe esté junto a tu aplicación."; 
+        }
       });
-    } catch (e) { setState(() { cargando = false; log = "❌ Error de Archivos: $e"; }); }
+    } catch (e) { 
+      setState(() { cargando = false; log = "❌ Error Crítico del Sistema: $e"; }); 
+    }
   }
 
   @override
