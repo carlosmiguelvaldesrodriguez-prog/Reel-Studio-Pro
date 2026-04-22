@@ -1,7 +1,7 @@
 name: ia_reel_builder
-description: IA Reel Studio Pro - Version 1.1 con Jukebox Musical.
+description: IA Reel Studio Pro V1.2 - Beat Editing & Advanced Jukebox.
 publish_to: 'none'
-version: 1.1.0+2
+version: 1.2.0+3
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -9,16 +9,11 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  # Cerebro de la App (IA)
   google_generative_ai: ^0.4.0
-  # Manejo de archivos y carpetas
   file_picker: ^8.0.0
   path_provider: ^2.1.2
-  # Procesamiento de imágenes (Compresor para Celeron)
   image: ^4.1.4
-  # Descarga de música de internet
   http: ^1.2.0
-  # El Músculo del Audio (Reproductor y Pre-escucha)
   audioplayers: ^5.2.1
 
 dev_dependencies:
