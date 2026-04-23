@@ -3,6 +3,17 @@ import 'package:process_run/shell.dart';
 import '../domain/models/clip.dart';
 
 class FFmpegBeatSyncEngine {
+  Future<void> renderEnterpriseReel({
+    required List<VideoClip> clips,
+    required String audioPath,
+    required String outputPath,
+    required int bpm,
+  }) async {
+import 'dart:io';
+import 'package:process_run/shell.dart';
+import '../domain/models/clip.dart';
+
+class FFmpegBeatSyncEngine {
   final String ffmpegPath = 'ffmpeg.exe'; // Asumiendo que está en el PATH de Windows
 
   /// Genera un video sincronizado al BPM de la música
@@ -71,5 +82,9 @@ class FFmpegBeatSyncEngine {
     } catch (e) {
       throw Exception("Error en renderizado nativo Windows: $e");
     }
+  }  
   }
+}
+
+
 }
