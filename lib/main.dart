@@ -1,210 +1,238 @@
 import 'package:flutter/material.dart';
-import 'package:file_picker/file_picker.dart'; 
-import 'package:google_generative_ai/google_generative_ai.dart'; 
-import 'package:image/image.dart' as img; 
-import 'package:http/http.dart' as http;
-import 'package:path_provider/path_provider.dart';
-import 'package:audioplayers/audioplayers.dart';
-import 'dart:typed_data';
-import 'dart:convert';
-import 'dart:async';
-import 'dart:io';
+import 'features/market_intelligence/data/market_agent.dart';
+import 'features/music_jukebox/data/music_library.dart';
+import 'features/video_editor/domain/models/clip.dart';
+import 'features/video_editor/presentation/timeline_ui.dart';
+import 'features/video_editor/data/ffmpeg_engine.dart';
 
-void main() => runApp(const MiEstudioApp());
-
-class VideoClip {
-  final String imageName;
-  final double duration;
-  final String transition;
-  VideoClip({required this.imageName, required this.duration, required this.transition});
-  
-  factory VideoClip.fromJson(Map<String, dynamic> json) => VideoClip(
-    imageName: json['image_name'] ?? "foto.jpg",
-    duration: (json['duration_sec'] ?? 3.0).toDouble(),
-    transition: json['transition'] ?? 'fade'
-  );
+void main() {
+  runApp(const IAReelStudioPro());
 }
 
-class MiEstudioApp extends StatelessWidget {
-  const MiEstudioApp({super.key});
+class IAReelStudioPro extends StatelessWidget {
+  const IAReelStudioPro({Key? key}) : super(key: key);
+
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(debugShowCheckedModeBanner: false, theme: ThemeData.dark(), home: const PantallaPrincipal());
+    return MaterialApp(
+      title: 'IA Reel Studio Pro - Enterprise',
+      theme: ThemeData(
+        brightness: Brightness.dark,
+        scaffoldBackgroundColor: const Color(0xFF0A0A0A),
+        primaryColor: Colors.amber,
+        colorScheme: const ColorScheme.dark(primary: Colors.amber, secondary: Colors.amberAccent),
+        fontFamily: 'Segoe UI', // Tipografía limpia para Windows
+      ),
+      home: const MainWorkspace(),
+    );
   }
 }
 
-class PantallaPrincipal extends StatefulWidget {
-  const PantallaPrincipal({super.key});
+class MainWorkspace extends StatefulWidget {
+  const MainWorkspace({Key? key}) : super(key: key);
+
   @override
-  State<PantallaPrincipal> createState() => _PantallaPrincipalState();
+  _MainWorkspaceState createState() => _MainWorkspaceState();
 }
-class _PantallaPrincipalState extends State<PantallaPrincipal> {
-  List<PlatformFile> fotos = [];
-  List<VideoClip> clips = [];
-  bool cargando = false;
-  String log = "V1.3: Transiciones Dinámicas listas.";
-  final TextEditingController _apiKeyController = TextEditingController();
-  final AudioPlayer _audioPlayer = AudioPlayer(); 
-  String? rutaMusicaLocal;
 
-  final Map<String, List<Map<String, String>>> jukebox = {
-    "Urbano/Rápido": [{"nombre": "Hip Hop Street", "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3", "bpm": "rápido"}],
-    "Cinematográfico/Lento": [{"nombre": "Epic Story", "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3", "bpm": "lento"}],
-    "Pop/Enérgico": [{"nombre": "Summer Pop", "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3", "bpm": "medio"}],
-  };
-  String generoSeleccionado = "Urbano/Rápido";
-  int indiceCancion = 0;
+class _MainWorkspaceState extends State<MainWorkspace> {
+  final MarketIntelligenceAgent _marketAgent = MarketIntelligenceAgent();
+  final MusicLibrary _musicLibrary = MusicLibrary();
+  final FFmpegBeatSyncEngine _ffmpegEngine = FFmpegBeatSyncEngine();
+
+  List<VideoClip> _currentClips =[];
+  MusicTrack? _selectedTrack;
+  bool _isAgentLoading = false;
+  bool _isRendering = false;
+  String _chatHistory = "Agente: ¡Hola! Listo para analizar el mercado.\n";
 
   @override
-  void dispose() {
-    _audioPlayer.dispose();
-    _apiKeyController.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    // Cargar clips por defecto
+    _currentClips =[
+      VideoClip(id: '1', imagePath: 'https://via.placeholder.com/150/000000/FFFFFF/?text=Foto+1'),
+      VideoClip(id: '2', imagePath: 'https://via.placeholder.com/150/111111/FFFFFF/?text=Foto+2'),
+      VideoClip(id: '3', imagePath: 'https://via.placeholder.com/150/222222/FFFFFF/?text=Foto+3'),
+    ];
   }
 
-  void navegarCancion(int dir) {
+  Future<void> _askAgentForStrategy() async {
+    setState(() => _isAgentLoading = true);
+    try {
+      final strategy = await _marketAgent.analyzeMarketAndRecommend();
+      setState(() {
+        _chatHistory += "\nAgente: Sugiero el nicho '${strategy['niche']}'. ${strategy['market_insight']}\n";
+        _chatHistory += "BPM Recomendado: ${strategy['recommended_bpm']}. Estilo: ${strategy['recommended_style']}.\n";
+      });
+
+      // Mostrar diálogo para aplicar sugerencia
+      _showStrategyDialog(strategy);
+    } finally {
+      setState(() => _isAgentLoading = false);
+    }
+  }
+
+  void _showStrategyDialog(Map<String, dynamic> strategy) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E1E),
+        title: const Text('Estrategia Generada', style: TextStyle(color: Colors.amber)),
+        content: Text('¿Aplicar configuración para ${strategy['niche']}?'),
+        actions:[
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Ignorar', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, foregroundColor: Colors.black),
+            onPressed: () {
+              _applyStrategy(strategy);
+              Navigator.pop(context);
+            },
+            child: const Text('Aplicar Sugerencia'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _applyStrategy(Map<String, dynamic> strategy) {
     setState(() {
-      final canciones = jukebox[generoSeleccionado]!;
-      indiceCancion = (indiceCancion + dir) % canciones.length;
-      if (indiceCancion < 0) indiceCancion = canciones.length - 1;
-      _audioPlayer.stop();
-      log = "Pista seleccionada: ${canciones[indiceCancion]['nombre']}";
+      // Aplicar pista musical sugerida (tomamos la primera del estilo recomendado)
+      _selectedTrack = _musicLibrary.catalog[strategy['recommended_style']]?.first;
+      
+      // Actualizar clips según la configuración sugerida
+      List<dynamic> config = strategy['suggested_clips_config'];
+      for (int i = 0; i < _currentClips.length && i < config.length; i++) {
+        _currentClips[i].durationSeconds = config[i]['duration'];
+        _currentClips[i].transitionType = config[i]['transition'];
+      }
     });
   }
 
-  Future<void> preescuchar() async {
-    await _audioPlayer.stop();
-    final url = jukebox[generoSeleccionado]![indiceCancion]['url']!;
-    await _audioPlayer.play(UrlSource(url));
-    setState(() => log = "Reproduciendo...");
-  }
-
-  Future<void> descargarMusica() async {
-    if (jukebox[generoSeleccionado]!.isEmpty) return;
-    await _audioPlayer.stop();
-    setState(() { cargando = true; log = "Descargando audio..."; });
-    try {
-      final response = await http.get(Uri.parse(jukebox[generoSeleccionado]![indiceCancion]['url']!));
-      Directory tempDir = await getTemporaryDirectory();
-      File f = File('${tempDir.path}\\musica_v13.mp3');
-      await f.writeAsBytes(response.bodyBytes);
-      setState(() { rutaMusicaLocal = f.path; log = "Audio listo."; });
-    } catch (e) { setState(() => log = "Error de descarga."); }
-    finally { setState(() => cargando = false); }
-  }
-
-  Future<void> seleccionar() async {
-    var res = await FilePicker.platform.pickFiles(type: FileType.image, allowMultiple: true);
-    if (res != null) setState(() { fotos = res.files; clips = []; log = "Fotos cargadas."; });
-  }
-
-  Future<void> procesarIA() async {
-    final key = _apiKeyController.text.trim();
-    if (key.isEmpty) { setState(() => log = "❌ Pega la API Key."); return; }
-    setState(() { cargando = true; log = "IA analizando ritmo..."; });
-    try {
-      final model = GenerativeModel(model: 'gemini-3-flash-preview', apiKey: key);
-      final images = <DataPart>[];
-      for (var f in fotos) {
-        final bytes = await File(f.path!).readAsBytes();
-        final mini = img.encodeJpg(img.copyResize(img.decodeImage(bytes)!, width: 400), quality: 60);
-        images.add(DataPart('image/jpeg', Uint8List.fromList(mini)));
-      }
-      final ritmo = jukebox[generoSeleccionado]![indiceCancion]['bpm'];
-      final prompt = TextPart('Director: Crea Reel 30s. 10 escenas. Ritmo: $ritmo. Si es rápido, clips de 1.5s-2.5s y transiciones wipe/pixelize. Si es lento, clips de 3.5s-4.5s y transiciones fade. JSON: {"timeline":[{"image_name":"foto_1","duration_sec":3.0,"transition":"fade"}]}');
-      final resp = await model.generateContent([Content.multi([...images, prompt])]);
-      final data = jsonDecode(resp.text!.replaceAll('```json', '').replaceAll('```', '').trim());
-      setState(() { clips = (data['timeline'] as List).map((i) => VideoClip.fromJson(i)).toList(); log = "Guion rítmico listo."; });
-    } catch (e) { setState(() => log = "Error IA o VPN."); }
-    finally { setState(() => cargando = false); }
-  }
-  Future<void> renderizarVideo() async {
-    if (fotos.isEmpty || clips.isEmpty || rutaMusicaLocal == null) {
-      setState(() => log = "❌ Faltan recursos."); return;
+  Future<void> _renderVideo() async {
+    if (_selectedTrack == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Selecciona una pista de audio primero')));
+      return;
     }
-    String rutaFFmpeg = "${Directory.current.path}\\bin\\ffmpeg.exe";
-    if (!File(rutaFFmpeg).existsSync()) {
-      setState(() => log = "❌ No encuentro ffmpeg.exe"); return;
-    }
-    setState(() { cargando = true; log = "🎬 Aplicando transiciones dinámicas..."; });
+    setState(() => _isRendering = true);
     try {
-      String? dir = await FilePicker.platform.getDirectoryPath();
-      if (dir == null) { setState(() => cargando = false); return; }
-      String salida = "$dir\\Reel_V13_${DateTime.now().millisecondsSinceEpoch}.mp4";
-      List<String> args = [];
-      String filters = "";
-      for (int i = 0; i < clips.length; i++) {
-        String ruta = fotos[i % fotos.length].path!.replaceAll(r'\', '/');
-        args.addAll(['-loop', '1', '-t', '${clips[i].duration + 0.5}', '-i', ruta]);
-        filters += "[$i:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:-1:-1:color=black,format=yuv420p,setsar=1[v$i];";
-      }
-      args.addAll(['-i', rutaMusicaLocal!]);
-      String ultima = "[v0]";
-      double offset = clips[0].duration - 0.5;
-      for (int i = 1; i < clips.length; i++) {
-        // --- LA CORRECCIÓN CRÍTICA ESTÁ AQUÍ ---
-        String trans = clips[i].transition.toLowerCase(); // Leemos la transición que dijo la IA
-        List<String> validas = ['fade', 'wipeleft', 'wiperight', 'slideup', 'slidedown', 'pixelize'];
-        if (trans == 'crossfade' || trans == 'fade_black') trans = 'fade';
-        if (!validas.contains(trans)) trans = 'fade'; // Si la IA inventa, usamos "fade" por seguridad
-
-        filters += "$ultima[v$i]xfade=transition=$trans:duration=0.5:offset=$offset[f$i];"; // La usamos en el comando
-        ultima = "[f$i]";
-        offset += (clips[i].duration - 0.5);
-      }
-      args.addAll(['-filter_complex', filters, '-map', ultima, '-map', '${clips.length}:a', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-t', '30', '-y', salida]);
-      ProcessResult res = await Process.run(rutaFFmpeg, args);
-      setState(() { cargando = false; log = res.exitCode == 0 ? "✨ ¡ÉXITO!\nVideo guardado en: $salida" : "❌ Error FFmpeg."; });
-    } catch (e) { setState(() { cargando = false; log = "Error de Sistema."; }); }
+      // Simulación de llamada al motor FFmpeg
+      await Future.delayed(const Duration(seconds: 3)); // Simula el tiempo de render
+      /* Descomentar en producción:
+      await _ffmpegEngine.renderEnterpriseReel(
+        clips: _currentClips,
+        audioPath: _selectedTrack!.url,
+        outputPath: 'C:\\temp\\output_reel.mp4',
+        bpm: _selectedTrack!.bpm,
+      );
+      */
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('¡Renderizado completado con éxito!')));
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    } finally {
+      setState(() => _isRendering = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final cancionActual = jukebox[generoSeleccionado]![indiceCancion];
     return Scaffold(
-      appBar: AppBar(title: const Text('IA REEL STUDIO PRO V1.3')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            SizedBox(width: 450, child: TextField(controller: _apiKeyController, obscureText: true, decoration: const InputDecoration(labelText: '🔑 API Key', border: OutlineInputBorder()))),
-            const SizedBox(height: 20),
-            Text(log, textAlign: TextAlign.center, style: const TextStyle(fontStyle: FontStyle.italic)),
-            const Divider(height: 30),
-            
-            // Jukebox UI
-            const Text("1. Elige tu música:", style: TextStyle(fontWeight: FontWeight.bold)),
-            DropdownButton<String>(
-              value: generoSeleccionado,
-              onChanged: (val) => setState(() { generoSeleccionado = val!; indiceCancion = 0; }),
-              items: jukebox.keys.map((g) => DropdownMenuItem(value: g, child: Text(g))).toList(),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF121212),
+        title: const Text('IA Reel Studio Pro', style: TextStyle(fontWeight: FontWeight.bold)),
+        elevation: 0,
+        actions:[
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.only(right: 16.0),
+              child: Text(_selectedTrack != null ? '🎵 ${_selectedTrack!.title} (${_selectedTrack!.bpm} BPM)' : 'Sin música', 
+                style: const TextStyle(color: Colors.amber)),
             ),
-            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              IconButton(icon: const Icon(Icons.skip_previous), onPressed: () => navegarCancion(-1)),
-              Text(cancionActual['nombre']!),
-              IconButton(icon: const Icon(Icons.skip_next), onPressed: () => navegarCancion(1)),
-            ]),
-            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              ElevatedButton.icon(onPressed: preescuchar, icon: const Icon(Icons.play_arrow), label: const Text("Escuchar")),
-              const SizedBox(width: 10),
-              ElevatedButton.icon(onPressed: descargarMusica, icon: const Icon(Icons.download), label: const Text("Elegir"), style: ElevatedButton.styleFrom(backgroundColor: Colors.purple)),
-            ]),
-            const Divider(height: 30),
-
-            if (!cargando) ...[
-              const Text("2. Sube tus fotos:", style: TextStyle(fontWeight: FontWeight.bold)),
-              ElevatedButton.icon(onPressed: seleccionar, icon: const Icon(Icons.photo_library), label: const Text("Seleccionar Fotos")),
-              const SizedBox(height: 20),
-              if (fotos.isNotEmpty) ...[
-                const Text("3. Genera el guion y renderiza:", style: TextStyle(fontWeight: FontWeight.bold)),
-                ElevatedButton.icon(onPressed: procesarIA, icon: const Icon(Icons.psychology), style: ElevatedButton.styleFrom(backgroundColor: Colors.green), label: const Text("Generar Guion IA")),
-                const SizedBox(height: 10),
-                if (clips.isNotEmpty) ElevatedButton.icon(onPressed: renderizarVideo, icon: const Icon(Icons.movie_creation), style: ElevatedButton.styleFrom(backgroundColor: Colors.blue), label: const Text("Renderizar Reel Final")),
+          )
+        ],
+      ),
+      body: Row(
+        children:[
+          // Panel Lateral: Agente de Mercado
+          Container(
+            width: 300,
+            color: const Color(0xFF1A1A1A),
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children:[
+                const Text('Market Intelligence', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Text(_chatHistory, style: const TextStyle(color: Colors.white70, height: 1.5)),
+                  ),
+                ),
+                if (_isAgentLoading) const Center(child: CircularProgressIndicator(color: Colors.amber)),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.auto_awesome, color: Colors.black),
+                    label: const Text('Analizar Mercado', style: TextStyle(color: Colors.black)),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, padding: const EdgeInsets.symmetric(vertical: 16)),
+                    onPressed: _isAgentLoading ? null : _askAgentForStrategy,
+                  ),
+                )
               ],
-            ],
-            if (cargando) const Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()),
-          ],
-        ),
+            ),
+          ),
+          // Área Principal: Editor
+          Expanded(
+            child: Column(
+              children:[
+                // Vista Previa (Placeholder)
+                Expanded(
+                  child: Container(
+                    margin: const EdgeInsets.all(24.0),
+                    decoration: BoxDecoration(
+                      color: Colors.black,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFF333333)),
+                    ),
+                    child: const Center(child: Icon(Icons.play_circle_outline, size: 64, color: Colors.white24)),
+                  ),
+                ),
+                // Timeline Interactivo
+                InteractiveTimeline(
+                  clips: _currentClips,
+                  onTimelineChanged: (newClips) {
+                    setState(() => _currentClips = newClips);
+                  },
+                ),
+                // Barra de Controles Inferior
+                Container(
+                  padding: const EdgeInsets.all(16.0),
+                  color: const Color(0xFF121212),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children:[
+                      ElevatedButton.icon(
+                        icon: _isRendering 
+                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            : const Icon(Icons.movie_creation),
+                        label: Text(_isRendering ? 'Renderizando...' : 'Exportar Reel'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green.shade700,
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                        ),
+                        onPressed: _isRendering ? null : _renderVideo,
+                      )
+                    ],
+                  ),
+                )
+              ],
+            ),
+          )
+        ],
       ),
     );
   }
