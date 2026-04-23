@@ -3,88 +3,81 @@ import 'package:process_run/shell.dart';
 import '../domain/models/clip.dart';
 
 class FFmpegBeatSyncEngine {
-  Future<void> renderEnterpriseReel({
-    required List<VideoClip> clips,
-    required String audioPath,
-    required String outputPath,
-    required int bpm,
-  }) async {
-import 'dart:io';
-import 'package:process_run/shell.dart';
-import '../domain/models/clip.dart';
+  // Asumimos que ffmpeg.exe está en una carpeta 'bin' al lado del .exe principal
+  final String ffmpegPath;
 
-class FFmpegBeatSyncEngine {
-  final String ffmpegPath = 'ffmpeg.exe'; // Asumiendo que está en el PATH de Windows
+  FFmpegBeatSyncEngine() : ffmpegPath = "${Directory.current.path}\\bin\\ffmpeg.exe";
 
-  /// Genera un video sincronizado al BPM de la música
   Future<String> renderEnterpriseReel({
     required List<VideoClip> clips,
     required String audioPath,
     required String outputPath,
     required int bpm,
   }) async {
-    // Matemáticas de Beat-Sync
-    // Ej: 120 BPM = 2 beats por segundo. Un compás (4 beats) = 2.0 segundos.
-    double secondsPerBeat = 60.0 / bpm;
-    double transitionDuration = secondsPerBeat / 2; // Transición rápida (medio beat)
+    if (!File(ffmpegPath).existsSync()) {
+      throw Exception("FATAL: ffmpeg.exe no encontrado en la carpeta 'bin'.");
+    }
 
-    List<String> inputs =[];
+    double transitionDuration = 0.5; // Medio segundo de transición
+    List<String> inputs = [];
     String filterGraph = "";
     
-    // 1. Preparar Inputs
+    // 1. Preparar Inputs de imágenes y escalarlas a 9:16
     for (int i = 0; i < clips.length; i++) {
-      inputs.addAll(['-loop', '1', '-t', '${clips[i].durationSeconds + transitionDuration}', '-i', clips[i].imagePath]);
+      double duracionConExtra = clips[i].durationSeconds + transitionDuration;
+      String rutaFotoLimpia = clips[i].imagePath.replaceAll(r'\', '/');
+      inputs.addAll(['-loop', '1', '-t', '$duracionConExtra', '-i', rutaFotoLimpia]);
+      filterGraph += "[$i:v]scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:-1:-1:color=black,format=yuv420p,setsar=1[v$i];";
     }
-    inputs.addAll(['-i', audioPath]); // Input de audio
-
-    // 2. Construir el Filtergraph complejo (XFADE dinámico)
-    double currentOffset = 0.0;
     
+    // 2. Preparar Input de audio
+    inputs.addAll(['-i', audioPath.replaceAll(r'\', '/')]);
+    int audioIndex = clips.length;
+
+    // 3. Construir la cadena de transiciones dinámicas (XFADE)
+    String lastOutput = "[v0]";
+    double currentOffset = clips[0].durationSeconds - transitionDuration;
+    if (currentOffset < 0) currentOffset = 0;
+
     for (int i = 0; i < clips.length - 1; i++) {
-      currentOffset += clips[i].durationSeconds;
+      String nextInput = "[v${i + 1}]";
+      String transType = clips[i+1].transitionType.toLowerCase(); // La transición del clip que ENTRA
       
-      String in1 = i == 0 ? "[0:v]" : "[v$i]";
-      String in2 = "[${i + 1}:v]";
-      String out = "[v${i + 1}]";
+      // Diccionario de seguridad para evitar errores de FFmpeg
+      const validTransitions = {'wipeleft', 'wiperight', 'slideup', 'slidedown', 'pixelize', 'fade'};
+      if (!validTransitions.contains(transType)) transType = 'fade';
       
-      // Variación dinámica de transiciones basada en el análisis del video adjunto
-      String transType = clips[i].transitionType;
-      
-      filterGraph += "$in1$in2"
+      filterGraph += "$lastOutput$nextInput"
           "xfade=transition=$transType:duration=$transitionDuration:offset=$currentOffset"
-          "$out;";
+          "[f${i + 1}];";
+      lastOutput = "[f${i + 1}]";
+      currentOffset += clips[i + 1].durationSeconds - transitionDuration;
     }
 
-    // Limpiar el último punto y coma y formatear el mapeo final
-    filterGraph = filterGraph.substring(0, filterGraph.length - 1);
-    String finalVideoMap = "[v${clips.length - 1}]";
-
-    // 3. Ensamblar comando FFmpeg
-    var shell = Shell();
-    List<String> commandArgs =[
+    // 4. Ensamblar comando final para Windows
+    var shell = Shell(verbose: false);
+    List<String> commandArgs = [
       ...inputs,
       '-filter_complex', filterGraph,
-      '-map', finalVideoMap,
-      '-map', '${clips.length}:a', // Mapear el audio
+      '-map', lastOutput,
+      '-map', '$audioIndex:a',
       '-c:v', 'libx264',
-      '-preset', 'fast',
+      '-preset', 'fast', // Más rápido en Celeron a costa de un poco de calidad
       '-pix_fmt', 'yuv420p',
-      '-c:a', 'aac',
-      '-shortest', // Cortar cuando termine el video o el audio
-      '-y', // Sobrescribir
-      outputPath
+      '-t', '30', // Corte estricto a 30 segundos
+      '-y',
+      outputPath.replaceAll(r'\', '/')
     ];
 
-    print("Ejecutando FFmpeg Beat-Sync...");
     try {
-      await shell.runExecutableArguments(ffmpegPath, commandArgs);
-      return outputPath;
+      var result = await shell.runExecutableArguments(ffmpegPath, commandArgs);
+      if (result.exitCode == 0) {
+        return outputPath;
+      } else {
+        throw Exception("FFmpeg falló. Código de salida: ${result.exitCode}\nError: ${result.stderr}");
+      }
     } catch (e) {
-      throw Exception("Error en renderizado nativo Windows: $e");
+      throw Exception("Error de Proceso Nativo Windows: $e");
     }
-  }  
   }
-}
-
-
 }
