@@ -1,30 +1,29 @@
-class MusicTrack {
-  final String title;
-  final String url;
-  final int bpm;
-
-  MusicTrack({required this.title, required this.url, required this.bpm});
-}
-
 class MusicLibrary {
-  // Catálogo estático estructurado
-  final Map<String, List<MusicTrack>> catalog = {
-    'Cinematic': List.generate(10, (i) => MusicTrack(title: 'Epic Trailer ${i+1}', url: 'https://mockurl.com/cinematic_$i.mp3', bpm: 90)),
-    'Urban': List.generate(10, (i) => MusicTrack(title: 'Street Beat ${i+1}', url: 'https://mockurl.com/urban_$i.mp3', bpm: 120)),
-    'Pop': List.generate(10, (i) => MusicTrack(title: 'Summer Vibes ${i+1}', url: 'https://mockurl.com/pop_$i.mp3', bpm: 115)),
-    'Lo-Fi': List.generate(10, (i) => MusicTrack(title: 'Chill Study ${i+1}', url: 'https://mockurl.com/lofi_$i.mp3', bpm: 80)),
-    'Corporate': List.generate(10, (i) => MusicTrack(title: 'Upbeat Tech ${i+1}', url: 'https://mockurl.com/corp_$i.mp3', bpm: 110)),
+  static final Map<String, List<Map<String, String>>> estilos = {
+    "Urbano / Hip Hop": [
+      {"nombre": "Street Cred", "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3", "bpm": "110"},
+      {"nombre": "Night Drive", "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3", "bpm": "95"},
+      {"nombre": "Trap Beat", "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-11.mp3", "bpm": "140"},
+      {"nombre": "Lo-Fi Chill", "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-12.mp3", "bpm": "85"},
+    ],
+    "Cinematográfico / Épico": [
+      {"nombre": "The Arrival", "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3", "bpm": "70"},
+      {"nombre": "Final Stand", "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3", "bpm": "80"},
+      {"nombre": "Horizons", "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-13.mp3", "bpm": "90"},
+    ],
+    "Bodas / Romántico": [
+      {"nombre": "First Dance", "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3", "bpm": "75"},
+      {"nombre": "Golden Hour", "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3", "bpm": "85"},
+      {"nombre": "Eternal Vow", "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-14.mp3", "bpm": "70"},
+    ],
+    "Pop / Publicidad": [
+      {"nombre": "Upbeat Summer", "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3", "bpm": "120"},
+      {"nombre": "Fresh Start", "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3", "bpm": "125"},
+      {"nombre": "Feel Good Inc.", "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-15.mp3", "bpm": "115"},
+    ],
+    "Corporativo / Presentación": [
+      {"nombre": "Innovation", "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3", "bpm": "110"},
+      {"nombre": "Thinking Forward", "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-16.mp3", "bpm": "100"},
+    ],
   };
-
-  // Mock de integración con Text-to-Music API (Gemini Music Integration)
-  Future<MusicTrack> generateMusicWithAI(String prompt) async {
-    // Simula la llamada a la API generativa
-    await Future.delayed(const Duration(seconds: 4));
-    
-    return MusicTrack(
-      title: 'AI Generated: $prompt',
-      url: 'https://mockurl.com/ai_generated_temp.mp3',
-      bpm: 120, // BPM por defecto para la pista generada
-    );
-  }
 }
