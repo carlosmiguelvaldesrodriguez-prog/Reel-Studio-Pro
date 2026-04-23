@@ -1,5 +1,5 @@
 name: ia_reel_builder
-description: IA Reel Studio Pro V2.0 - Enterprise Marketing Edition
+description: IA Reel Studio Pro V2.0 - Enterprise Marketing Edition.
 publish_to: 'none'
 version: 2.0.0+1
 
@@ -10,20 +10,20 @@ dependencies:
   flutter:
     sdk: flutter
   
-  # --- EL CEREBRO (IA) ---
+  # EL CEREBRO DE LA APP
   google_generative_ai: ^0.4.0
-  provider: ^6.1.1             # Gestiona el estado del Chatbot y la App
+  provider: ^6.1.1 # Gestión de estado asíncrono para el Chat y UI
 
-  # --- EL MÚSCULO (VIDEO Y ARCHIVOS) ---
+  # EL MÚSCULO DE LA APP
   file_picker: ^8.0.0
   path_provider: ^2.1.2
-  process_run: ^0.13.0         # Ejecuta ffmpeg.exe nativo en Windows
-  image: ^4.1.4                # Compresor para tu procesador Celeron
+  process_run: ^0.13.0 # Ejecución robusta de ffmpeg.exe
+  image: ^4.1.4
+  http: ^1.2.0
 
-  # --- LA INTERFAZ (CAPCUT STYLE) ---
-  reorderables: ^0.6.0         # Para arrastrar y soltar fotos en el timeline
-  audioplayers: ^5.2.1         # Para la Jukebox y pre-escucha
-  http: ^1.2.0                 # Para descargar la música de internet
+  # LA EXPERIENCIA DE USUARIO
+  reorderables: ^0.6.0 # Para el Timeline Drag & Drop
+  audioplayers: ^5.2.1 # Para la Jukebox y pre-escucha
 
 dev_dependencies:
   flutter_test:
