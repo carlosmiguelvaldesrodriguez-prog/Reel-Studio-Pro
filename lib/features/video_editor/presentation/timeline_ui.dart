@@ -64,4 +64,40 @@ class _InteractiveTimelineState extends State<InteractiveTimeline> {
           Expanded(
             child: ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(8.0)),
-              
+              // Muestra la imagen real del clip
+              child: Image.file(
+                File(clip.imagePath), 
+                fit: BoxFit.cover, 
+                width: double.infinity,
+                errorBuilder: (context, error, stackTrace) => Container(color: Colors.red.withOpacity(0.3), child: const Icon(Icons.broken_image, color: Colors.white, size: 40)),
+              ),
+            ),
+          ),
+          // CONTROLES INFERIORES: Duración y Transición
+          Container(
+            height: 50,
+            padding: const EdgeInsets.symmetric(horizontal: 4.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('${clip.durationSeconds.toStringAsFixed(1)}s', style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.animation, color: Colors.amber, size: 16),
+                  color: Colors.grey.shade900, // Color del menú desplegable
+                  initialValue: clip.transitionType,
+                  onSelected: (val) {
+                    setState(() => clip.transitionType = val);
+                    widget.onTransitionChanged(clip, val); // Notifica el cambio de transición
+                  },
+                  itemBuilder: (context) => availableTransitions
+                      .map((t) => PopupMenuItem(value: t, child: Text(t, style: const TextStyle(color: Colors.white))))
+                      .toList(),
+                ),
+              ],
+            ),
+          )
+        ],
+      ),
+    );
+  }
+}
