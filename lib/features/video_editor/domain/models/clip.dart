@@ -2,12 +2,12 @@ class VideoClip {
   final String id;
   final String imagePath;
   double durationSeconds;
-  String transitionType; // ej. 'fade', 'wipeleft', 'circlecrop'
+  String transitionType;
 
   VideoClip({
     required this.id,
     required this.imagePath,
-    this.durationSeconds = 2.0,
-    this.transitionType = 'fade',
+    this.durationSeconds = 3.0, // Duración por defecto
+    this.transitionType = 'fade', // Transición por defecto
   });
 }
