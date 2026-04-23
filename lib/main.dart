@@ -248,3 +248,94 @@ class _PantallaPrincipalState extends State<PantallaPrincipal> {
       setState(() { cargando = false; log = res.exitCode == 0 ? "✨ ¡ÉXITO!\nVideo guardado en: $salida" : "❌ Error FFmpeg."; });
     } catch (e) { setState(() => log = "Error: $e"); }
   }
+  @override
+  Widget build(BuildContext context) {
+    final cancionActual = MusicLibrary.estilos[generoActivo]![indiceCancion];
+    return Scaffold(
+      appBar: AppBar(title: const Text('IA REEL STUDIO PRO V2.0', style: TextStyle(fontWeight: FontWeight.bold))),
+      body: Row(
+        children: [
+          // Panel Izquierdo: Chat y Jukebox
+          Container(
+            width: 380,
+            padding: const EdgeInsets.all(15),
+            color: Colors.grey.shade900,
+            child: Column(
+              children: [
+                TextField(controller: _apiKeyController, obscureText: true, decoration: const InputDecoration(labelText: 'Google API Key', border: OutlineInputBorder())),
+                const SizedBox(height: 20),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: chatMessages.length,
+                    itemBuilder: (context, index) => Text(chatMessages[index], style: TextStyle(color: index % 2 == 0 ? Colors.cyanAccent : Colors.white70)),
+                  ),
+                ),
+                TextField(
+                  controller: _chatController,
+                  decoration: InputDecoration(
+                    hintText: "Pregunta al Agente de Marketing...",
+                    suffixIcon: IconButton(icon: const Icon(Icons.send), onPressed: enviarMensajeChat),
+                  ),
+                  onSubmitted: (value) => enviarMensajeChat(),
+                ),
+                const SizedBox(height: 20),
+                const Text("JUKEBOX DE MÚSICA", style: TextStyle(fontWeight: FontWeight.bold)),
+                DropdownButton<String>(
+                  value: generoActivo,
+                  items: MusicLibrary.estilos.keys.map((g) => DropdownMenuItem(value: g, child: Text(g))).toList(),
+                  onChanged: (v) => setState(() { generoActivo = v!; indiceCancion = 0; _audioPlayer.stop(); }),
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    IconButton(icon: const Icon(Icons.skip_previous), onPressed: () => navegarCancion(-1)),
+                    Text(cancionActual['nombre']!, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    IconButton(icon: const Icon(Icons.skip_next), onPressed: () => navegarCancion(1)),
+                  ],
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    IconButton(icon: const Icon(Icons.play_arrow), onPressed: preescuchar),
+                    IconButton(icon: const Icon(Icons.stop), onPressed: () => _audioPlayer.stop()),
+                    ElevatedButton.icon(onPressed: descargarMusica, icon: const Icon(Icons.download), label: const Text("ELEGIR MÚSICA")),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          // Panel Derecho: Timeline y Controles de Video
+          Expanded(
+            child: Column(
+              children: [
+                Expanded(
+                  child: timelineClips.isNotEmpty
+                      ? InteractiveTimeline(
+                          clips: timelineClips,
+                          onTimelineChanged: (newClips) => setState(() => timelineClips = newClips),
+                          onDurationChanged: (clip, dur) {}, // Implementar control de duración en timeline_ui
+                          onTransitionChanged: (clip, trans) => {}, // Implementar control de transición
+                        )
+                      : const Center(child: Text("Cargue fotos para ver el Timeline aquí.")),
+                ),
+                const SizedBox(height: 20),
+                if (!cargando) Wrap(
+                  spacing: 15, runSpacing: 15, alignment: WrapAlignment.center,
+                  children: [
+                    ElevatedButton.icon(onPressed: seleccionarFotos, icon: const Icon(Icons.photo_library), label: const Text("CARGAR FOTOS")),
+                    if (fotosRaw.isNotEmpty) ElevatedButton.icon(onPressed: generarGuionConIA, icon: const Icon(Icons.auto_awesome), style: ElevatedButton.styleFrom(backgroundColor: Colors.green.shade800), label: const Text("GENERAR GUION IA")),
+                    if (timelineClips.isNotEmpty && rutaMusicaLocal != null) ElevatedButton.icon(onPressed: renderizarVideo, icon: const Icon(Icons.movie_creation), style: ElevatedButton.styleFrom(backgroundColor: Colors.blue.shade800), label: const Text("RENDERIZAR REEL")),
+                    ElevatedButton.icon(onPressed: limpiarTodo, icon: const Icon(Icons.clear), label: const Text("LIMPIAR"), style: ElevatedButton.styleFrom(backgroundColor: Colors.red)),
+                  ],
+                ),
+                if (cargando) const Padding(padding: EdgeInsets.all(30), child: CircularProgressIndicator()),
+                const SizedBox(height: 20),
+                Text(log, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
